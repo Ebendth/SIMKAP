@@ -55,6 +55,8 @@ table.grid td.r:hover{background:var(--accent2)}
 table.grid td.r.x{text-decoration:line-through;text-decoration-thickness:2px;color:#999;background:#f1f1f1;position:relative}
 table.grid td.r.x::after{content:"";position:absolute;left:8%;right:8%;top:50%;border-top:2px solid #b02a2a;transform:rotate(-12deg)}
 table.grid td.l{background:#f7f8fb}
+table.grid td.l.pre{color:#8a93a6;position:relative}
+table.grid td.l.pre::after{content:"";position:absolute;left:8%;right:8%;top:50%;border-top:2px solid #6b7385;transform:rotate(-12deg)}
 #answers{background:var(--panel);border-top:2px solid #2b3a5c;padding:8px 10px}
 #ansHead{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
 #ansHead b{font-size:14px;margin-right:6px}
@@ -164,7 +166,7 @@ table.res th{background:#f4f6fa}
 <div class="overlay" id="ovStart">
  <div class="card">
   <h2>SIMKAP Übung </h2>
-  <p><b>Ablauf:</b> Nach dem Start läuft die Uhr. Jede Zeile hat 10 Reihen (der Strich in der Mitte ist nur optisch). Streiche alle Reihen an, die <b>in derselben Zeile doppelt</b> vorkommen – jedes Vorkommen, also auch das erste. Reihen, die nur einmal in der Zeile stehen, bleiben stehen. Nochmal klicken hebt das Streichen auf. Pro Seite siehst du 10 Zeilen. Wenn du fertig bist, klickst du „Abgeben“: Die Seite wird gewertet und die nächste erscheint (Zahlen- und Buchstabenseiten wechseln sich ab). Nur abgegebene Seiten zählen.</p>
+  <p><b>Ablauf:</b> Nach dem Start läuft die Uhr. Jede Zeile hat 10 Reihen (der Strich in der Mitte ist nur optisch). Links sind die Reihen, die in der Zeile doppelt vorkommen, <b>bereits durchgestrichen</b>. Streiche <b>rechts</b> die identischen Reihen ab. Nochmal klicken hebt das Streichen auf. Pro Seite siehst du 10 Zeilen. Wenn du fertig bist, klickst du „Abgeben“: Die Seite wird gewertet und die nächste erscheint (Zahlen- und Buchstabenseiten wechseln sich ab). Nur abgegebene Seiten zählen.</p>
   <p>Währenddessen kommen in gleichen Abständen Fragen über den Ton. Klicke unten so schnell wie möglich die richtige Antwort an. Die Antwortfelder sind in drei Blöcke aufgeteilt (Fragen 1–25, 26–50, 51–75). Der Block springt automatisch zur zuletzt gestellten Frage, du kannst ihn aber auch selbst wechseln.</p>
   <p><b>Zeitaufgaben</b> („Wenn die Uhr 2:30 zeigt …“): Die Uhr oben startet mit Frage 21. Die Antwort zählt nur, wenn du sie zu dieser Uhrzeit gibst (innerhalb der Toleranz unten). Zu früh oder zu spät zählt als Fehler.</p>
   <p>Kalender und Telefonbuch öffnest du oben über die Reiter 2 und 3 und schließt sie wieder mit „Schließen“. Die Fenster lassen sich an der Titelzeile verschieben.</p>
@@ -254,7 +256,9 @@ function renderPage(){
     const tr=document.createElement('tr'); tr.innerHTML='<td class="rn">'+(i+1)+'</td>';
     set.lines[i].forEach((v,j)=>{
       if(j===5){ const sp=document.createElement('td'); sp.className='sep'; tr.appendChild(sp); }
-      const td=document.createElement('td'); td.textContent=v; td.className='r';
+      const td=document.createElement('td'); td.textContent=v;
+      if(j<5){ td.className='l'+(set.lines[i].slice(5).includes(v)?' pre':''); tr.appendChild(td); return; }
+      td.className='r';
       if(S&&S.strikes[P.k][i][j]) td.classList.add('x');
       td.onclick=()=>{ if(!S||!S.running) return; td.classList.toggle('x'); S.strikes[P.k][i][j]=td.classList.contains('x'); };
       tr.appendChild(td);
@@ -500,7 +504,7 @@ function finish(){
   showResults();
 }
 
-function lineTargets(r){const c={}; r.forEach(v=>c[v]=(c[v]||0)+1); return r.map(v=>c[v]>1);}
+function lineTargets(r){const L=new Set(r.slice(0,5)); return r.map((v,j)=>j>=5 && L.has(v));}
 function gridScore(k){
   const lines=SETS[k].lines, strikes=S.strikes[k];
   let hit=0,fa=0,miss=0,targets=0,allTargets=0,lines_=0;
