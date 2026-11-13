@@ -68,6 +68,10 @@ table.res th{background:#f4f6fa}
   <label>Reihe sichtbar <input type="number" id="setOn" min="0.2" max="3" step="0.05" value="0.5"> s</label>
   <label>Pause <input type="number" id="setOff" min="0" max="3" step="0.05" value="0.5"> s</label>
  </div>
+ <div class="row"><b>Reihenfolge:</b>
+  <label><input type="radio" name="ord" id="ordRnd" checked> Zufällig (jedes Mal neu)</label>
+  <label><input type="radio" name="ord" id="ordOrig"> Original aus der Keynote</label>
+ </div>
  <div class="row"><label><input type="checkbox" id="setFb"> Übungsmodus: kurz grün/rot anzeigen, ob die Reaktion richtig war</label></div>
  <p class="note" id="info"></p>
  <div class="row">
@@ -75,7 +79,7 @@ table.res th{background:#f4f6fa}
   <button class="sec" id="probeBtn">Probelauf (1 Minute)</button>
   <a class="sec" href="../index.html" style="text-decoration:none">← Zur Übersicht</a>
  </div>
- <p class="note">Tempo, Reihen und Höhen stammen aus deiner Keynote-Datei (2000 Reihen, je 0,5 s sichtbar + 0,5 s Pause). Ruhiger Raum, Bildschirm hell genug.</p>
+ <p class="note">Tempo und Darstellung stammen aus deiner Keynote-Datei (je 0,5 s sichtbar + 0,5 s Pause). „Original“ zeigt die 2000 Reihen der Keynote, in der sich ein 50er-Block wiederholt. „Zufällig“ erzeugt bei jedem Start neue Reihen mit gleichem Anteil an Zielreihen (20 %) und springender Höhe.</p>
 </div></div>
 
 <div class="overlay hidden" id="ovRes"><div class="card" id="resCard"></div></div>
@@ -92,7 +96,7 @@ function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 const W=36.9,H=41.9,DX=43.95,X0=329.7;
 function draw(i){
   const g=$('row'); if(i<0){g.innerHTML='';return;}
-  const [m,y]=ROWS[i%ROWS.length]; let s='';
+  const [m,y]=R.rows[i]; let s='';
   for(let k=0;k<7;k++){
     const down=(m>>(6-k))&1, x=X0+k*DX;
     const pts=down?[[x,y],[x+W,y],[x+W/2,y+H]]:[[x+W/2,y],[x+W,y+H],[x,y+H]];
@@ -101,21 +105,36 @@ function draw(i){
   g.innerHTML=s;
 }
 
+// --- Zufällige Reihen: 20 % Zielreihen, sonst Verteilung wie im Original, Höhe springt
+const YS=[...new Set(ROWS.map(r=>r[1]))];
+const NONT=(()=>{const c={};ROWS.forEach(r=>{const k=[...Array(7).keys()].filter(b=>r[0]>>b&1).length;if(k!==3)c[k]=(c[k]||0)+1;});return Object.entries(c).map(([k,v])=>[+k,v]);})();
+function pickCount(){const tot=NONT.reduce((a,x)=>a+x[1],0);let r=Math.random()*tot;for(const [k,v] of NONT){if((r-=v)<0)return k;}return 0;}
+function maskWith(k){const idx=[0,1,2,3,4,5,6];for(let i=6;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}let m=0;idx.slice(0,k).forEach(b=>m|=1<<b);return m;}
+function genRows(n){const out=[];let lastY=null,run=0;
+  for(let i=0;i<n;i++){
+    let tgt=Math.random()<0.2; if(tgt&&run>=2) tgt=false; run=tgt?run+1:0;
+    const m=maskWith(tgt?3:pickCount());
+    let y; do{ y=YS[Math.floor(Math.random()*YS.length)]; }while(lastY!=null&&Math.abs(y-lastY)<25);
+    lastY=y; out.push([m,y]); }
+  return out;}
+
 // --- Ablauf
 let R=null;
-function settings(){return{min:Math.min(34,Math.max(1,+$('setMin').value||30)),on:Math.max(0.2,+$('setOn').value||0.5),off:Math.max(0,+$('setOff').value),fb:$('setFb').checked};}
+function settings(){return{order:$('ordRnd').checked?'zufall':'original',min:Math.min(34,Math.max(1,+$('setMin').value||30)),on:Math.max(0.2,+$('setOn').value||0.5),off:Math.max(0,+$('setOff').value),fb:$('setFb').checked};}
 function info(){const s=settings(),per=s.on+s.off,n=Math.min(ROWS.length,Math.floor(s.min*60/per));
   const t=ROWS.slice(0,n).filter(r=>isT(r[0])).length;
-  $('info').textContent=n+' Reihen in '+fmt(n*per)+' Minuten, davon '+t+' Zielreihen (genau 3 nach unten).'+(n<Math.floor(s.min*60/per)?' (Mehr Reihen gibt die Datei nicht her.)':'');
+  $('info').textContent=n+' Reihen in '+fmt(n*per)+' Minuten, davon '+(s.order==='zufall'?'ca. '+Math.round(n*0.2):t)+' Zielreihen (genau 3 nach unten). '+
+    (s.order==='zufall'?'Reihenfolge: jedes Mal neu erzeugt, keine Wiederholung.':'Reihenfolge: Original aus der Keynote (50er-Block wiederholt sich).')+(n<Math.floor(s.min*60/per)?' (Mehr Reihen gibt die Datei nicht her.)':'');
   store('dauf_set',s);}
-['setMin','setOn','setOff','setFb'].forEach(id=>$(id).addEventListener('input',info));
-(function(){const s=load('dauf_set',null);if(s){$('setMin').value=s.min;$('setOn').value=s.on;$('setOff').value=s.off;$('setFb').checked=!!s.fb;}info();})();
+['setMin','setOn','setOff','setFb','ordOrig','ordRnd'].forEach(id=>$(id).addEventListener('input',info));
+(function(){const s=load('dauf_set',null);if(s&&s.order==='original')$('ordOrig').checked=true;if(s){$('setMin').value=s.min;$('setOn').value=s.on;$('setOff').value=s.off;$('setFb').checked=!!s.fb;}info();})();
 
 function start(probe){
   const s=settings(),per=s.on+s.off;
   const n=probe?Math.round(60/per):Math.min(ROWS.length,Math.floor(s.min*60/per));
   const offset=probe?Math.floor(Math.random()*(ROWS.length-n)):0;
-  R={s,per,n,offset,probe,t0:performance.now()+1500,idx:-1,resp:new Array(n).fill(null),fa:0,extra:0,running:true,lastShown:-1,visible:false};
+  const rows=s.order==='zufall'?genRows(n):Array.from({length:n},(_,i)=>ROWS[(i+offset)%ROWS.length]);
+  R={s,per,n,offset,rows,probe,t0:performance.now()+1500,idx:-1,resp:new Array(n).fill(null),fa:0,extra:0,running:true,lastShown:-1,visible:false};
   $('ovStart').classList.add('hidden');$('ovRes').classList.add('hidden');
   draw(-1); try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
   $('hud').textContent='Gleich geht es los …';
@@ -129,7 +148,7 @@ function loop(){
   if(i>=R.n){finish();return;}
   if(i!==R.idx){R.idx=i;}
   const want=inOn?i:-1;
-  if(want!==R.lastShown){draw(want>=0?want+R.offset:-1);R.lastShown=want;}
+  if(want!==R.lastShown){draw(want>=0?want:-1);R.lastShown=want;}
   $('hud').textContent=fmt(R.n*R.per-t);
   requestAnimationFrame(loop);
 }
@@ -140,7 +159,7 @@ function press(){
   const i=Math.floor(t/R.per); if(i>=R.n)return;
   if(R.resp[i]!=null){R.extra++;return;}
   const rt=t-i*R.per; R.resp[i]=rt;
-  const target=isT(ROWS[(i+R.offset)%ROWS.length][0]);
+  const target=isT(R.rows[i][0]);
   if(R.s.fb)flash(target?'#1f8a4c':'#c0392b');
 }
 function flash(c){const f=$('flash');f.style.background=c;f.style.opacity=.35;setTimeout(()=>f.style.opacity=0,120);}
@@ -160,7 +179,7 @@ function finish(aborted){
   let hit=0,miss=0,fa=0,cr=0,tg=0,rts=[];
   const blocks=[]; const bl=300/R.per; // 5-Minuten-Blöcke
   for(let i=0;i<done;i++){
-    const target=isT(ROWS[(i+R.offset)%ROWS.length][0]), r=R.resp[i];
+    const target=isT(R.rows[i][0]), r=R.resp[i];
     const b=Math.floor(i/bl); blocks[b]=blocks[b]||{hit:0,miss:0,fa:0,tg:0,n:0,rts:[]}; const B=blocks[b]; B.n++;
     if(target){tg++;B.tg++; if(r!=null){hit++;B.hit++;rts.push(r);B.rts.push(r);} else {miss++;B.miss++;}}
     else { if(r!=null){fa++;B.fa++;} else cr++; }
