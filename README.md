@@ -1,4 +1,4 @@
-# Übungen – SIMKAP & DAUF
+# Übungen – SIMKAP, DAUF & Vigilanz
 
 Offline-fähige Übungs-App fürs Eignungstest-Training.
 
@@ -7,6 +7,7 @@ Offline-fähige Übungs-App fürs Eignungstest-Training.
 | Übung | Ordner | Inhalt |
 |---|---|---|
 | SIMKAP | `simkap/` | Abstreichen, 75 Tonfragen, Kalender, Telefonbuch, Zeitaufgaben, Auswertung in % |
+| Vigilanz | `vigilanz/` | Punkt springt im Kreis, 2–7 Sprünge pro Minute, 30 min, Fehlerquote und 5-Minuten-Verlauf |
 | DAUF | `dauf/` | 2000 Dreiecksreihen mit Sprung, 30 min, Fehlerauswertung in % und 5-Minuten-Verlauf |
 
 ## Installieren

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vigilanz Übung</title>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Übungen">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2b3a5c">
+<script>if('serviceWorker' in navigator && location.protocol.startsWith('http')) window.addEventListener('load',()=>navigator.serviceWorker.register('../sw.js',{scope:'../'}).catch(()=>{}));</script>
+
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+svg{width:100vw;height:100vh;display:block}
+#hud{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;font:14px monospace;color:#555;z-index:5}
+#stopBtn{position:fixed;top:calc(8px + env(safe-area-inset-top));left:12px;background:#222;color:#aaa;border:1px solid #444;border-radius:6px;padding:6px 10px;font-size:13px;z-index:5;cursor:pointer}
+#tapHint{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#333;font-size:13px;pointer-events:none}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .15s}
+.overlay{position:fixed;inset:0;background:#0d1220;z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 14px}
+.overlay.hidden{display:none}
+.card{background:#fff;color:#1d2330;border-radius:12px;max-width:760px;width:100%;padding:22px 24px;margin:auto 0}
+.card h2{margin-top:0}
+.card p{line-height:1.5}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.row label{display:flex;gap:6px;align-items:center}
+.row input[type=number]{width:72px;padding:5px;font-size:15px}
+.big{background:#2f4f8f;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-size:17px;font-weight:700;cursor:pointer}
+.sec{background:#eef1f7;color:#1d2330;border:1px solid #c4cad6;border-radius:8px;padding:11px 16px;font-weight:600;cursor:pointer;font-size:15px;text-decoration:none;display:inline-block}
+.note{font-size:13px;color:#6b7385}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+.kpi{background:#f4f6fa;border-radius:8px;padding:10px}
+.kpi .v{font-size:24px;font-weight:700}.kpi .t{font-size:12px;color:#6b7385}
+.score{font-size:52px;font-weight:800;line-height:1}
+.scoreBox{display:flex;gap:22px;align-items:center;flex-wrap:wrap;background:#eef2fb;border-radius:10px;padding:14px 18px;margin:8px 0}
+table.res{border-collapse:collapse;width:100%;font-size:14px;margin-top:6px}
+table.res th,table.res td{border:1px solid #d5d9e2;padding:5px 8px;text-align:right}
+table.res th:first-child,table.res td:first-child{text-align:left}
+table.res th{background:#f4f6fa}
+.ok{color:#1f8a4c}.bad{color:#c0392b}
+.demo{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.demo svg{width:150px;height:150px;background:#000;border-radius:10px}
+.demo span{font-size:13px;color:#4b5468;max-width:220px;display:block}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"><g id="marks"></g><circle id="dot" r="16" fill="#fff" cx="-100" cy="-100"/></svg></div>
+<div id="flash"></div>
+<button id="stopBtn">Abbrechen</button>
+<div id="hud"></div>
+<div id="tapHint">Leertaste drücken oder auf den Bildschirm tippen, wenn der Punkt eine Stelle überspringt</div>
+
+<div class="overlay" id="ovStart"><div class="card">
+ <h2>Vigilanz</h2>
+ <p>Ein weißer Punkt springt auf schwarzem Grund im <b>Uhrzeigersinn</b> im Kreis, Schritt für Schritt wie ein Sekundenzeiger. Ab und zu <b>überspringt der Punkt eine Stelle</b>. Dann drückst du so schnell wie möglich die <b>Leertaste</b>, am Handy tippst du irgendwo auf den Bildschirm. Sonst drückst du nichts.</p>
+ <div class="demo">
+  <div><svg viewBox="0 0 200 200" id="demoA"></svg><span>Normal: ein Schritt weiter → nichts tun</span></div>
+  <div><svg viewBox="0 0 200 200" id="demoB"></svg><span>Sprung: eine Stelle ausgelassen → drücken</span></div>
+ </div>
+ <div class="row">
+  <label>Dauer <input type="number" id="setMin" min="1" max="60" value="30"> min</label>
+  <label>Schritt alle <input type="number" id="setStep" min="0.3" max="3" step="0.1" value="1"> s</label>
+  <label>Positionen im Kreis <input type="number" id="setPos" min="12" max="120" step="1" value="60"></label>
+ </div>
+ <div class="row">
+  <label>Sprünge pro Minute <input type="number" id="setJmin" min="0" max="20" value="2"> bis <input type="number" id="setJmax" min="1" max="20" value="7"></label>
+  <label>Reaktionszeit max. <input type="number" id="setWin" min="0.5" max="5" step="0.1" value="2"> s</label>
+ </div>
+ <div class="row">
+  <label><input type="checkbox" id="setMarks" checked> Positionen als schwache Punkte anzeigen</label>
+  <label><input type="checkbox" id="setFb"> Übungsmodus: grün/rot nach jeder Reaktion</label>
+ </div>
+ <p class="note" id="info"></p>
+ <div class="row">
+  <button class="big" id="startBtn">Übung starten</button>
+  <button class="sec" id="probeBtn">Probelauf (1 Minute)</button>
+  <a class="sec" href="../index.html">← Zur Übersicht</a>
+ </div>
+</div></div>
+
+<div class="overlay hidden" id="ovRes"><div class="card" id="resCard"></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+const CX=500,CY=500,RAD=380;
+const P=(i,n,cx=CX,cy=CY,r=RAD)=>{const a=-Math.PI/2+2*Math.PI*i/n;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+
+// Demo-Grafiken
+function demo(id,skip){const n=12,s=$(id);let h='';for(let i=0;i<n;i++){const [x,y]=P(i,n,100,100,75);h+='<circle cx="'+x+'" cy="'+y+'" r="3" fill="#333"/>';}
+ const a=P(0,n,100,100,75),b=P(1,n,100,100,75),c=P(2,n,100,100,75);
+ h+='<circle cx="'+a[0]+'" cy="'+a[1]+'" r="7" fill="#555"/>';
+ const t=skip?c:b; h+='<circle cx="'+t[0]+'" cy="'+t[1]+'" r="8" fill="#fff"/>';
+ h+='<path d="M'+a[0]+','+(a[1]+16)+' Q100,'+(a[1]+40)+' '+t[0]+','+(t[1]+14)+'" stroke="'+(skip?'#e0a030':'#4a8')+'" stroke-width="3" fill="none" marker-end="url(#ar'+id+')"/>';
+ h='<defs><marker id="ar'+id+'" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="'+(skip?'#e0a030':'#4a8')+'"/></marker></defs>'+h;
+ s.innerHTML=h;}
+demo('demoA',false);demo('demoB',true);
+
+function settings(){return{min:Math.max(1,+$('setMin').value||30),step:Math.max(0.3,+$('setStep').value||1),pos:Math.max(12,Math.round(+$('setPos').value||60)),
+  jmin:Math.max(0,Math.round(+$('setJmin').value||0)),jmax:Math.max(1,Math.round(+$('setJmax').value||7)),win:Math.max(0.5,+$('setWin').value||2),marks:$('setMarks').checked,fb:$('setFb').checked};}
+function info(){const s=settings();const n=Math.floor(s.min*60/s.step);
+  const lo=Math.min(s.jmin,s.jmax),hi=Math.max(s.jmin,s.jmax);
+  $('info').textContent=n+' Schritte in '+fmt(n*s.step)+' Minuten. Pro Minute '+lo+' bis '+hi+' Sprünge, zufällig verteilt (insgesamt ca. '+Math.round(s.min*(lo+hi)/2)+', jedes Mal neu). Eine Reaktion zählt, wenn sie innerhalb von '+s.win.toString().replace('.',',')+' s nach dem Sprung kommt.';
+  store('vig_set',s);}
+['setMin','setStep','setPos','setJmin','setJmax','setWin','setMarks','setFb'].forEach(id=>$(id).addEventListener('input',info));
+(function(){const s=load('vig_set',null);if(s){$('setMin').value=s.min;$('setStep').value=s.step;$('setPos').value=s.pos;if(s.jmin!=null)$('setJmin').value=s.jmin;if(s.jmax!=null)$('setJmax').value=s.jmax;$('setWin').value=s.win;$('setMarks').checked=s.marks!==false;$('setFb').checked=!!s.fb;}info();})();
+
+function drawMarks(n,show){let h='';if(show)for(let i=0;i<n;i++){const [x,y]=P(i,n);h+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="#222"/>';}$('marks').innerHTML=h;}
+function showDot(p,n){if(p==null){$('dot').setAttribute('cx',-100);return;}const [x,y]=P(p,n);$('dot').setAttribute('cx',x);$('dot').setAttribute('cy',y);}
+
+// Sprünge: in jeder Minute zufällig zwischen jmin und jmax, zufällig verteilt,
+// mit Mindestabstand (Reaktionszeit + 1 s), damit Reaktionen eindeutig zuzuordnen sind
+function genTargets(nSteps,stepSec,jmin,jmax,winSec){
+  const lo=Math.min(jmin,jmax),hi=Math.max(jmin,jmax);
+  const per=Math.max(1,Math.round(60/stepSec)), gap=Math.max(2,Math.ceil((winSec+1)/stepSec));
+  const t=[]; 
+  for(let m0=0;m0<nSteps;m0+=per){
+    const m1=Math.min(nSteps,m0+per); const k=lo+Math.floor(Math.random()*(hi-lo+1));
+    for(let tries=0;tries<200;tries++){
+      const cand=[];const pool=[];for(let i=Math.max(m0,1);i<m1;i++)pool.push(i);
+      for(let j=pool.length-1;j>0;j--){const r=Math.floor(Math.random()*(j+1));[pool[j],pool[r]]=[pool[r],pool[j]];}
+      for(const i of pool){ if(cand.length>=k)break; const prev=t.length?t[t.length-1]:-1e9;
+        if(i-prev>=gap && cand.every(c=>Math.abs(c-i)>=gap)) cand.push(i); }
+      if(cand.length===k||tries===199){ cand.sort((x,y)=>x-y); t.push(...cand); break; }
+    }
+  }
+  return new Set(t);}
+
+let R=null;
+function start(probe){
+  const s=settings(); const dur=probe?60:s.min*60; const n=Math.floor(dur/s.step);
+  const targets=genTargets(n,s.step,s.jmin,s.jmax,s.win);
+  const pos=[Math.floor(Math.random()*s.pos)]; for(let i=1;i<n;i++) pos.push((pos[i-1]+(targets.has(i)?2:1))%s.pos);
+  R={s,n,probe,targets,pos,t0:performance.now()+1500,hits:{},fa:[],running:true,last:-1};
+  drawMarks(s.pos,s.marks); showDot(null);
+  $('ovStart').classList.add('hidden');$('ovRes').classList.add('hidden');
+  try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
+  $('hud').textContent='Gleich geht es los …';
+  requestAnimationFrame(loop);
+}
+function loop(){
+  if(!R||!R.running)return;
+  const t=(performance.now()-R.t0)/1000;
+  if(t<0){requestAnimationFrame(loop);return;}
+  const i=Math.floor(t/R.s.step);
+  if(i>=R.n){finish();return;}
+  if(i!==R.last){showDot(R.pos[i],R.s.pos);R.last=i;}
+  $('hud').textContent=fmt(R.n*R.s.step-t);
+  requestAnimationFrame(loop);
+}
+function press(){
+  if(!R||!R.running)return;
+  const t=(performance.now()-R.t0)/1000; if(t<0)return;
+  // jüngster Sprung, dessen Reaktionsfenster noch offen ist
+  let hit=null; const cur=Math.floor(t/R.s.step);
+  for(let k=cur;k>=0&&k>=cur-Math.ceil(R.s.win/R.s.step)-1;k--){
+    if(R.targets.has(k)){const dt=t-k*R.s.step; if(dt>=0&&dt<=R.s.win&&R.hits[k]==null){hit=k;} break;}
+  }
+  if(hit!=null){R.hits[hit]=t-hit*R.s.step; if(R.s.fb)flash('#1f8a4c');}
+  else {R.fa.push(t); if(R.s.fb)flash('#c0392b');}
+}
+function flash(c){const f=$('flash');f.style.background=c;f.style.opacity=.35;setTimeout(()=>f.style.opacity=0,120);}
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.key===' '){e.preventDefault();if(!e.repeat)press();}});
+$('stage').addEventListener('pointerdown',e=>{e.preventDefault();press();});
+$('stopBtn').addEventListener('pointerdown',e=>e.stopPropagation());
+let stopArm=0;
+$('stopBtn').onclick=()=>{if(!R||!R.running)return;
+  if(Date.now()-stopArm<3000){finish(true);return;}
+  stopArm=Date.now();$('stopBtn').textContent='Wirklich abbrechen?';setTimeout(()=>$('stopBtn').textContent='Abbrechen',3000);};
+
+function finish(aborted){
+  if(!R||!R.running)return; R.running=false; showDot(null);
+  try{document.fullscreenElement&&document.exitFullscreen();}catch(e){}
+  const t=Math.max(0,(performance.now()-R.t0)/1000);
+  const doneSteps=aborted?Math.min(R.n,Math.floor(t/R.s.step)):R.n; const doneT=doneSteps*R.s.step;
+  const tg=[...R.targets].filter(k=>k<doneSteps&&(k*R.s.step+R.s.win<=t||!aborted));
+  const hits=tg.filter(k=>R.hits[k]!=null), miss=tg.length-hits.length, fa=R.fa.filter(x=>x<=doneT).length;
+  const rts=hits.map(k=>R.hits[k]); const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+  const pct=x=>(Math.round(x*1000)/10).toFixed(1).replace('.',',')+' %';
+  const errRate=(tg.length+fa)?(miss+fa)/(tg.length+fa):0;
+  // 5-Minuten-Abschnitte
+  const B=[]; const bs=300;
+  tg.forEach(k=>{const b=Math.floor(k*R.s.step/bs);B[b]=B[b]||{tg:0,h:0,fa:0,rts:[]};B[b].tg++;if(R.hits[k]!=null){B[b].h++;B[b].rts.push(R.hits[k]);}});
+  R.fa.filter(x=>x<=doneT).forEach(x=>{const b=Math.floor(x/bs);B[b]=B[b]||{tg:0,h:0,fa:0,rts:[]};B[b].fa++;});
+  let h='<h2>Auswertung'+(R.probe?' (Probelauf)':'')+'</h2><p class="note">Dauer '+fmt(doneT)+(aborted?' (abgebrochen)':'')+' · '+doneSteps+' Schritte</p>';
+  h+='<div class="scoreBox"><div><div class="score '+(errRate<=0.1?'ok':errRate<=0.25?'':'bad')+'">'+pct(errRate)+'</div><div class="note">Fehlerquote</div></div>'+
+     '<div><div class="score">'+pct(tg.length?hits.length/tg.length:0)+'</div><div class="note">Sprünge erkannt</div></div></div>';
+  h+='<div class="kpis">'+kpi(hits.length+' / '+tg.length,'Sprünge erkannt')+kpi(miss,'Sprünge übersehen')+kpi(fa,'Fehlreaktionen (ohne Sprung gedrückt)')+
+     kpi(rts.length?Math.round(avg(rts)*1000)+' ms':'–','Ø Reaktionszeit')+kpi(rts.length?Math.round(Math.max(...rts)*1000)+' ms':'–','langsamste Reaktion')+'</div>';
+  h+='<h3>Verlauf in 5-Minuten-Abschnitten</h3><table class="res"><tr><th>Abschnitt</th><th>erkannt</th><th>übersehen</th><th>Fehlreaktionen</th><th>Ø Reaktion</th></tr>';
+  for(let i=0;i<Math.ceil(doneT/bs);i++){const b=B[i]||{tg:0,h:0,fa:0,rts:[]};
+    h+='<tr><td>'+fmt(i*bs)+'–'+fmt(Math.min((i+1)*bs,doneT))+'</td><td>'+b.h+' / '+b.tg+'</td><td>'+(b.tg-b.h)+'</td><td>'+b.fa+'</td><td>'+(b.rts.length?Math.round(avg(b.rts)*1000)+' ms':'–')+'</td></tr>';}
+  h+='</table><p class="note">Fehlerquote = (übersehene Sprünge + Fehlreaktionen) ÷ (Sprünge + Fehlreaktionen). Eine Reaktion zählt als Treffer, wenn sie innerhalb von '+R.s.win.toString().replace('.',',')+' s nach dem Sprung kommt.</p>';
+  h+='<div class="row"><button class="big" id="againBtn">Zum Start</button></div>';
+  $('resCard').innerHTML=h;$('ovRes').classList.remove('hidden');$('hud').textContent='';
+  $('againBtn').onclick=()=>{$('ovRes').classList.add('hidden');$('ovStart').classList.remove('hidden');};
+}
+function kpi(v,t){return '<div class="kpi"><div class="v">'+v+'</div><div class="t">'+t+'</div></div>';}
+$('startBtn').onclick=()=>start(false);
+$('probeBtn').onclick=()=>start(true);
+</script>
+</body>
+</html>
