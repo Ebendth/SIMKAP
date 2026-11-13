@@ -1,14 +1,19 @@
-# SIMKAP Übung
+# Übungen – SIMKAP & DAUF
 
-Offline-fähige Übungs-App (Web-App) für die SIMKAP-Testsituation: Abstreichen, Tonfragen, Kalender, Telefonbuch, Zeitaufgaben und Auswertung.
+Offline-fähige Übungs-App fürs Eignungstest-Training.
 
-## Nutzung
-- Seite öffnen: `https://ebendth.github.io/simkap/`
-- **iPhone:** in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Danach auch offline nutzbar.
-- **Android:** in Chrome öffnen → Menü → „App installieren“ / „Zum Startbildschirm hinzufügen“.
-- Ton: Stumm-Schalter aus, auf dem Startbildschirm zuerst „Ton testen“.
+**Startseite:** https://ebendth.github.io/SIMKAP/
 
-## Dateien
-- `index.html` – komplette Übung (Fragen, Tonspuren, Daten eingebettet)
-- `sw.js` – Service Worker für die Offline-Nutzung
-- `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` – App-Symbol und -Name
+| Übung | Ordner | Inhalt |
+|---|---|---|
+| SIMKAP | `simkap/` | Abstreichen, 75 Tonfragen, Kalender, Telefonbuch, Zeitaufgaben, Auswertung in % |
+| DAUF | `dauf/` | 2000 Dreiecksreihen mit Sprung, 30 min, Fehlerauswertung in % und 5-Minuten-Verlauf |
+
+## Installieren
+- **iPhone:** Startseite in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Danach offline nutzbar.
+- **Android:** in Chrome öffnen → Menü → „App installieren“.
+
+## Aufbau
+- `index.html` – Startseite mit Übungsauswahl
+- `sw.js` – Service Worker (offline; lädt online immer die neueste Version)
+- `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` – App-Name und Symbol
