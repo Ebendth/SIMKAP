@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stop-Signal Übung</title>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Übungen">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2b3a5c">
+<script>if('serviceWorker' in navigator && location.protocol.startsWith('http')) window.addEventListener('load',()=>navigator.serviceWorker.register('../sw.js',{scope:'../'}).catch(()=>{}));</script>
+
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0;display:flex;touch-action:manipulation}
+#stage .half{flex:1;height:100%}
+#view{position:fixed;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+svg{width:min(60vw,60vh);height:min(60vw,60vh)}
+#hud{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;font:14px monospace;color:#555;z-index:5}
+#stopBtn{position:fixed;top:calc(8px + env(safe-area-inset-top));left:12px;background:#222;color:#aaa;border:1px solid #444;border-radius:6px;padding:6px 10px;font-size:13px;z-index:5;cursor:pointer}
+#hint{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:space-around;color:#333;font-size:13px;pointer-events:none}
+#divider{position:fixed;top:15%;bottom:15%;left:50%;border-left:1px dashed #1a1a1a;pointer-events:none}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .15s}
+.overlay{position:fixed;inset:0;background:#0d1220;z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 14px}
+.overlay.hidden{display:none}
+.card{background:#fff;color:#1d2330;border-radius:12px;max-width:760px;width:100%;padding:22px 24px;margin:auto 0}
+.card h2{margin-top:0}
+.card p,.card li{line-height:1.5}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.row label{display:flex;gap:6px;align-items:center}
+.row input[type=number]{width:72px;padding:5px;font-size:15px}
+.big{background:#2f4f8f;color:#fff;border:none;border-radius:8px;padding:12px 22px;font-size:17px;font-weight:700;cursor:pointer}
+.sec{background:#eef1f7;color:#1d2330;border:1px solid #c4cad6;border-radius:8px;padding:11px 16px;font-weight:600;cursor:pointer;font-size:15px;text-decoration:none;display:inline-block}
+.note{font-size:13px;color:#6b7385}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
+.kpi{background:#f4f6fa;border-radius:8px;padding:10px}
+.kpi .v{font-size:24px;font-weight:700}.kpi .t{font-size:12px;color:#6b7385}
+.score{font-size:52px;font-weight:800;line-height:1}
+.scoreBox{display:flex;gap:22px;align-items:center;flex-wrap:wrap;background:#eef2fb;border-radius:10px;padding:14px 18px;margin:8px 0}
+table.res{border-collapse:collapse;width:100%;font-size:14px;margin-top:6px}
+table.res th,table.res td{border:1px solid #d5d9e2;padding:5px 8px;text-align:right}
+table.res th:first-child,table.res td:first-child{text-align:left}
+table.res th{background:#f4f6fa}
+.ok{color:#1f8a4c}.bad{color:#c0392b}
+.keys{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0}
+.keys div{background:#f4f6fa;border-radius:8px;padding:8px 12px;font-size:14px}
+kbd{background:#fff;border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-family:monospace}
+</style>
+</head>
+<body>
+<div id="stage"><div class="half" id="hl"></div><div class="half" id="hr"></div></div>
+<div id="divider"></div>
+<div id="view"><svg id="svg" viewBox="-100 -100 200 200"></svg></div>
+<div id="flash"></div>
+<button id="stopBtn">Abbrechen</button>
+<div id="hud"></div>
+<div id="hint"><span>◀ links tippen · A · ←</span><span>rechts tippen · D · → ▶</span></div>
+
+<div class="overlay" id="ovStart"><div class="card">
+ <h2>Stop-Signal</h2>
+ <p>In der Mitte erscheint ein Pfeil nach <b>links</b> oder nach <b>rechts</b>. Drücke so schnell wie möglich in die Richtung des Pfeils.</p>
+ <div class="keys">
+  <div>Links: <kbd>A</kbd> oder <kbd>←</kbd> · Handy: linke Bildschirmhälfte</div>
+  <div>Rechts: <kbd>D</kbd> oder <kbd>→</kbd> · Handy: rechte Bildschirmhälfte</div>
+ </div>
+ <p><b>Ertönt ein Piepton</b> (gleichzeitig oder kurz nach dem Pfeil), <b>darfst du nicht drücken</b>. Warte nicht auf den Ton: Reagiere immer so schnell wie möglich, der Ton kommt nur manchmal. Ton einschalten!</p>
+ <div class="row">
+  <label>Durchgänge <input type="number" id="setN" min="10" max="600" value="200"></label>
+  <label>Anteil mit Piepton <input type="number" id="setStop" min="0" max="50" value="25"> %</label>
+  <label>Zeit zum Reagieren <input type="number" id="setWin" min="0.5" max="3" step="0.1" value="1"> s</label>
+ </div>
+ <div class="row">
+  <label><input type="checkbox" id="setAdapt" checked> Piepton-Verzögerung passt sich an (wird schwerer, wenn du gut stoppst)</label>
+  <label><input type="checkbox" id="setFb"> Übungsmodus: grün/rot nach jedem Durchgang</label>
+ </div>
+ <p class="note" id="info"></p>
+ <div class="row">
+  <button class="sec" id="beepBtn">🔊 Ton testen</button>
+  <button class="big" id="startBtn">Übung starten</button>
+  <button class="sec" id="probeBtn">Probelauf (20 Durchgänge)</button>
+  <a class="sec" href="../index.html">← Zur Übersicht</a>
+ </div>
+</div></div>
+
+<div class="overlay hidden" id="ovRes"><div class="card" id="resCard"></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+// Zeiten (ms)
+const FIX=500, ITI_MIN=500, ITI_MAX=1000, SSD0=250, SSD_STEP=50, SSD_MIN=0, SSD_MAX=900;
+
+// --- Ton (Web Audio, funktioniert auch offline)
+let actx=null;
+function audio(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} return actx; }
+function beepAt(when){ const a=audio(); if(!a) return;
+  const o=a.createOscillator(), g=a.createGain(); o.type='sine'; o.frequency.value=1000;
+  const t=Math.max(a.currentTime,when); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.6,t+0.005); g.gain.setValueAtTime(0.6,t+0.095); g.gain.linearRampToValueAtTime(0,t+0.1);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+0.11); }
+$('beepBtn').onclick=()=>{ const a=audio(); if(a) beepAt(a.currentTime+0.02); };
+
+// --- Darstellung
+function show(what){
+  const s=$('svg');
+  if(what==='fix') s.innerHTML='<path d="M-14,0 H14 M0,-14 V14" stroke="#888" stroke-width="4"/>';
+  else if(what==='L'||what==='R'){ const d=what==='L'?-1:1;
+    s.innerHTML='<g transform="scale('+d+',1)"><path d="M-60,-14 H10 V-38 L62,0 L10,38 V14 H-60 Z" fill="#fff"/></g>'; }
+  else s.innerHTML='';
+}
+
+// --- Einstellungen
+function settings(){return{n:Math.max(10,Math.round(+$('setN').value||200)),stop:Math.min(50,Math.max(0,+$('setStop').value||0)),win:Math.max(0.5,+$('setWin').value||1),adapt:$('setAdapt').checked,fb:$('setFb').checked};}
+function info(){const s=settings();const avg=(FIX+s.win*1000+(ITI_MIN+ITI_MAX)/2)/1000;
+  $('info').textContent=s.n+' Durchgänge, davon ca. '+Math.round(s.n*s.stop/100)+' mit Piepton. Dauer ca. '+fmt(s.n*avg)+' Minuten.';store('stop_set',s);}
+['setN','setStop','setWin','setAdapt','setFb'].forEach(id=>$(id).addEventListener('input',info));
+(function(){const s=load('stop_set',null);if(s){$('setN').value=s.n;$('setStop').value=s.stop;$('setWin').value=s.win;$('setAdapt').checked=s.adapt!==false;$('setFb').checked=!!s.fb;}info();})();
+
+// --- Durchgänge erzeugen: Richtung zufällig, Stop-Durchgänge gleichmäßig verteilt, nie zwei Stopps hintereinander
+function genTrials(n,stopPct){
+  const nStop=Math.round(n*stopPct/100); const T=[];
+  for(let i=0;i<n;i++) T.push({dir:Math.random()<0.5?'L':'R',stop:false});
+  const idx=[...Array(n).keys()].slice(1); for(let i=idx.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  let placed=0; for(const i of idx){ if(placed>=nStop) break; if((T[i-1]&&T[i-1].stop)||(T[i+1]&&T[i+1].stop)) continue; T[i].stop=true; placed++; }
+  return T;
+}
+
+let R=null;
+function start(probe){
+  const s=settings(); const n=probe?20:s.n;
+  audio();
+  R={s,probe,trials:genTrials(n,probe?30:s.stop),i:-1,phase:'pre',t:0,ssd:SSD0,running:true,early:0};
+  $('ovStart').classList.add('hidden');$('ovRes').classList.add('hidden');
+  try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
+  show(null); $('hud').textContent='Gleich geht es los …';
+  R.next=performance.now()+1500; R.phase='iti';
+  requestAnimationFrame(loop);
+}
+function nextTrial(now){
+  R.i++; if(R.i>=R.trials.length){finish();return;}
+  const T=R.trials[R.i]; T.fixAt=now; R.phase='fix'; show('fix'); R.next=now+FIX;
+  $('hud').textContent=(R.i+1)+' / '+R.trials.length;
+}
+function loop(){
+  if(!R||!R.running) return;
+  const now=performance.now();
+  if(R.phase==='iti' && now>=R.next){ nextTrial(now); }
+  else if(R.phase==='fix' && now>=R.next){
+    const T=R.trials[R.i]; R.phase='arrow'; show(T.dir); T.on=now; R.next=now+R.s.win*1000;
+    if(T.stop){ T.ssd=R.ssd; const a=audio(); if(a) beepAt(a.currentTime+T.ssd/1000); }
+  }
+  else if(R.phase==='arrow' && now>=R.next){ endTrial(now); }
+  if(R.running) requestAnimationFrame(loop);
+}
+function endTrial(now){
+  const T=R.trials[R.i];
+  if(T.stop){ T.ok=(T.resp==null); if(R.s.adapt) R.ssd=Math.min(SSD_MAX,Math.max(SSD_MIN,R.ssd+(T.ok?SSD_STEP:-SSD_STEP))); }
+  else T.ok=(T.resp===T.dir);
+  if(R.s.fb) flash(T.ok?'#1f8a4c':'#c0392b');
+  show(null); R.phase='iti'; R.next=now+ITI_MIN+Math.random()*(ITI_MAX-ITI_MIN);
+}
+function respond(dir){
+  if(!R||!R.running) return;
+  const now=performance.now();
+  if(R.phase!=='arrow'){ if(R.phase==='fix') R.early++; return; }
+  const T=R.trials[R.i]; if(T.resp!=null) return;
+  T.resp=dir; T.rt=now-T.on;
+  if(!T.stop) endTrial(now); // Go: sofort weiter; Stop: Pfeil bleibt bis zum Ende stehen
+}
+function flash(c){const f=$('flash');f.style.background=c;f.style.opacity=.35;setTimeout(()=>f.style.opacity=0,120);}
+document.addEventListener('keydown',e=>{ if(e.repeat) return;
+  const k=e.key.toLowerCase();
+  if(k==='a'||e.key==='ArrowLeft'){e.preventDefault();respond('L');}
+  else if(k==='d'||e.key==='ArrowRight'){e.preventDefault();respond('R');} });
+$('hl').addEventListener('pointerdown',e=>{e.preventDefault();respond('L');});
+$('hr').addEventListener('pointerdown',e=>{e.preventDefault();respond('R');});
+$('stopBtn').addEventListener('pointerdown',e=>e.stopPropagation());
+let stopArm=0;
+$('stopBtn').onclick=()=>{if(!R||!R.running)return;
+  if(Date.now()-stopArm<3000){finish(true);return;}
+  stopArm=Date.now();$('stopBtn').textContent='Wirklich abbrechen?';setTimeout(()=>$('stopBtn').textContent='Abbrechen',3000);};
+
+function finish(aborted){
+  if(!R||!R.running) return; R.running=false; show(null);
+  try{document.fullscreenElement&&document.exitFullscreen();}catch(e){}
+  const done=R.trials.filter((T,i)=>i<R.i||(i===R.i&&T.ok!=null)).filter(T=>T.ok!=null);
+  const go=done.filter(T=>!T.stop), st=done.filter(T=>T.stop);
+  const goOk=go.filter(T=>T.resp===T.dir), goWrong=go.filter(T=>T.resp!=null&&T.resp!==T.dir), goMiss=go.filter(T=>T.resp==null);
+  const stOk=st.filter(T=>T.resp==null), stFail=st.filter(T=>T.resp!=null);
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+  const goRT=avg(goOk.map(T=>T.rt)), failRT=avg(stFail.map(T=>T.rt)), meanSSD=avg(st.map(T=>T.ssd));
+  // SSRT (Integrationsmethode): Go-RT an der Stelle p(Fehlstopp) minus mittlere Piepton-Verzögerung
+  let ssrt=null;
+  if(st.length>=5&&go.length>=10){ const rts=go.map(T=>T.resp!=null?T.rt:R.s.win*1000).sort((a,b)=>a-b);
+    const p=stFail.length/st.length; const nth=rts[Math.min(rts.length-1,Math.max(0,Math.ceil(p*rts.length)-1))]; ssrt=Math.round(nth-meanSSD); }
+  const errors=goWrong.length+goMiss.length+stFail.length;
+  const pct=x=>(Math.round(x*1000)/10).toFixed(1).replace('.',',')+' %';
+  const errRate=done.length?errors/done.length:0;
+  let h='<h2>Auswertung'+(R.probe?' (Probelauf)':'')+'</h2><p class="note">'+done.length+' Durchgänge'+(aborted?' (abgebrochen)':'')+'</p>';
+  h+='<div class="scoreBox"><div><div class="score '+(errRate<=0.1?'ok':errRate<=0.2?'':'bad')+'">'+pct(errRate)+'</div><div class="note">Fehler gesamt</div></div>'+
+     '<div><div class="score">'+pct(st.length?stOk.length/st.length:0)+'</div><div class="note">richtig gestoppt</div></div>'+
+     '<div><div class="score">'+(goRT?Math.round(goRT)+' ms':'–')+'</div><div class="note">Ø Reaktionszeit</div></div></div>';
+  h+='<h3>Ohne Piepton ('+go.length+')</h3><div class="kpis">'+
+     kpi(goOk.length+' <span class="note">('+pct(go.length?goOk.length/go.length:0)+')</span>','richtig gedrückt')+
+     kpi(goWrong.length,'falsche Richtung')+kpi(goMiss.length,'nicht/zu spät gedrückt')+'</div>';
+  h+='<h3>Mit Piepton ('+st.length+')</h3><div class="kpis">'+
+     kpi(stOk.length+' <span class="note">('+pct(st.length?stOk.length/st.length:0)+')</span>','richtig nicht gedrückt')+
+     kpi(stFail.length,'trotz Piepton gedrückt')+
+     kpi(st.length?Math.round(meanSSD)+' ms':'–','Ø Piepton-Verzögerung')+
+     kpi(ssrt!=null?ssrt+' ms':'–','Stopp-Reaktionszeit (SSRT, geschätzt)')+'</div>';
+  if(R.early) h+='<p class="note">'+R.early+'× vor dem Pfeil gedrückt (nicht gewertet).</p>';
+  h+='<p class="note">Fehler gesamt = falsche Richtung + nicht gedrückt + trotz Piepton gedrückt, geteilt durch alle Durchgänge. Mit Anpassung wird der Piepton nach jedem erfolgreichen Stopp 50 ms später gespielt (schwerer) und nach jedem Fehler 50 ms früher – so pendelt sich eine Stopp-Quote um 50 % ein. Die SSRT schätzt, wie schnell du eine begonnene Reaktion abbrechen kannst (niedriger = besser).</p>';
+  h+='<div class="row"><button class="big" id="againBtn">Zum Start</button></div>';
+  $('resCard').innerHTML=h;$('ovRes').classList.remove('hidden');$('hud').textContent='';
+  $('againBtn').onclick=()=>{$('ovRes').classList.add('hidden');$('ovStart').classList.remove('hidden');};
+}
+function kpi(v,t){return '<div class="kpi"><div class="v">'+v+'</div><div class="t">'+t+'</div></div>';}
+$('startBtn').onclick=()=>start(false);
+$('probeBtn').onclick=()=>start(true);
+</script>
+</body>
+</html>
