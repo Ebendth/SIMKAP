@@ -57,7 +57,7 @@ table.res th{background:#f4f6fa}
 
 <div class="overlay" id="ovStart"><div class="card">
  <h2>Vigilanz</h2>
- <p>Ein weißer Punkt springt auf schwarzem Grund im <b>Uhrzeigersinn</b> im Kreis, Schritt für Schritt wie ein Sekundenzeiger. Ab und zu <b>überspringt der Punkt eine Stelle</b>. Dann drückst du so schnell wie möglich die <b>Leertaste</b>, am Handy tippst du irgendwo auf den Bildschirm. Sonst drückst du nichts.</p>
+ <p>Ein weißer Punkt springt auf schwarzem Grund im <b>Uhrzeigersinn</b> im Kreis, Schritt für Schritt wie ein Sekundenzeiger (32 Schritte pro Runde). Ab und zu <b>überspringt der Punkt eine Stelle</b>. Dann drückst du so schnell wie möglich die <b>Leertaste</b>, am Handy tippst du irgendwo auf den Bildschirm. Sonst drückst du nichts.</p>
  <div class="demo">
   <div><svg viewBox="0 0 200 200" id="demoA"></svg><span>Normal: ein Schritt weiter → nichts tun</span></div>
   <div><svg viewBox="0 0 200 200" id="demoB"></svg><span>Sprung: eine Stelle ausgelassen → drücken</span></div>
@@ -65,7 +65,7 @@ table.res th{background:#f4f6fa}
  <div class="row">
   <label>Dauer <input type="number" id="setMin" min="1" max="60" value="30"> min</label>
   <label>Schritt alle <input type="number" id="setStep" min="0.3" max="3" step="0.1" value="1"> s</label>
-  <label>Positionen im Kreis <input type="number" id="setPos" min="12" max="120" step="1" value="60"></label>
+  <label>Positionen im Kreis <input type="number" id="setPos" min="12" max="120" step="1" value="32"></label>
  </div>
  <div class="row">
   <label>Sprünge pro Minute <input type="number" id="setJmin" min="0" max="20" value="2"> bis <input type="number" id="setJmax" min="1" max="20" value="7"></label>
@@ -103,14 +103,14 @@ function demo(id,skip){const n=12,s=$(id);let h='';for(let i=0;i<n;i++){const [x
  s.innerHTML=h;}
 demo('demoA',false);demo('demoB',true);
 
-function settings(){return{min:Math.max(1,+$('setMin').value||30),step:Math.max(0.3,+$('setStep').value||1),pos:Math.max(12,Math.round(+$('setPos').value||60)),
+function settings(){return{min:Math.max(1,+$('setMin').value||30),step:Math.max(0.3,+$('setStep').value||1),pos:Math.max(12,Math.round(+$('setPos').value||32)),
   jmin:Math.max(0,Math.round(+$('setJmin').value||0)),jmax:Math.max(1,Math.round(+$('setJmax').value||7)),win:Math.max(0.5,+$('setWin').value||2),marks:$('setMarks').checked,fb:$('setFb').checked};}
 function info(){const s=settings();const n=Math.floor(s.min*60/s.step);
   const lo=Math.min(s.jmin,s.jmax),hi=Math.max(s.jmin,s.jmax);
   $('info').textContent=n+' Schritte in '+fmt(n*s.step)+' Minuten. Pro Minute '+lo+' bis '+hi+' Sprünge, zufällig verteilt (insgesamt ca. '+Math.round(s.min*(lo+hi)/2)+', jedes Mal neu). Eine Reaktion zählt, wenn sie innerhalb von '+s.win.toString().replace('.',',')+' s nach dem Sprung kommt.';
-  store('vig_set',s);}
+  store('vig_set2',s);}
 ['setMin','setStep','setPos','setJmin','setJmax','setWin','setMarks','setFb'].forEach(id=>$(id).addEventListener('input',info));
-(function(){const s=load('vig_set',null);if(s){$('setMin').value=s.min;$('setStep').value=s.step;$('setPos').value=s.pos;if(s.jmin!=null)$('setJmin').value=s.jmin;if(s.jmax!=null)$('setJmax').value=s.jmax;$('setWin').value=s.win;$('setMarks').checked=s.marks!==false;$('setFb').checked=!!s.fb;}info();})();
+(function(){const s=load('vig_set2',null);if(s){$('setMin').value=s.min;$('setStep').value=s.step;$('setPos').value=s.pos;if(s.jmin!=null)$('setJmin').value=s.jmin;if(s.jmax!=null)$('setJmax').value=s.jmax;$('setWin').value=s.win;$('setMarks').checked=s.marks!==false;$('setFb').checked=!!s.fb;}info();})();
 
 function drawMarks(n,show){let h='';if(show)for(let i=0;i<n;i++){const [x,y]=P(i,n);h+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="#222"/>';}$('marks').innerHTML=h;}
 function showDot(p,n){if(p==null){$('dot').setAttribute('cx',-100);return;}const [x,y]=P(p,n);$('dot').setAttribute('cx',x);$('dot').setAttribute('cy',y);}
