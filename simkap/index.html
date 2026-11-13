@@ -166,7 +166,7 @@ table.res th{background:#f4f6fa}
 <div class="overlay" id="ovStart">
  <div class="card">
   <h2>SIMKAP Übung </h2>
-  <p><b>Ablauf:</b> Nach dem Start läuft die Uhr. Jede Zeile hat 10 Reihen (der Strich in der Mitte ist nur optisch). Links sind die Reihen, die in der Zeile doppelt vorkommen, <b>bereits durchgestrichen</b>. Streiche <b>rechts</b> die identischen Reihen ab. Nochmal klicken hebt das Streichen auf. Pro Seite siehst du 10 Zeilen. Wenn du fertig bist, klickst du „Abgeben“: Die Seite wird gewertet und die nächste erscheint (Zahlen- und Buchstabenseiten wechseln sich ab). Nur abgegebene Seiten zählen.</p>
+  <p><b>Ablauf:</b> Nach dem Start läuft die Uhr. Jede Zeile hat 10 Reihen (der Strich in der Mitte ist nur optisch). Links sind bei jedem Start zufällig 1–3 Reihen <b>bereits durchgestrichen</b>. Streiche <b>rechts</b> alle Reihen ab, die einer links durchgestrichenen gleichen. Kommt keine davon rechts vor, streichst du in dieser Zeile nichts – das ist dann richtig. Nochmal klicken hebt das Streichen auf. Pro Seite siehst du 10 Zeilen. Wenn du fertig bist, klickst du „Abgeben“: Die Seite wird gewertet und die nächste erscheint (Zahlen- und Buchstabenseiten wechseln sich ab). Nur abgegebene Seiten zählen.</p>
   <p>Währenddessen kommen in gleichen Abständen Fragen über den Ton. Klicke unten so schnell wie möglich die richtige Antwort an. Die Antwortfelder sind in drei Blöcke aufgeteilt (Fragen 1–25, 26–50, 51–75). Der Block springt automatisch zur zuletzt gestellten Frage, du kannst ihn aber auch selbst wechseln.</p>
   <p><b>Zeitaufgaben</b> („Wenn die Uhr 2:30 zeigt …“): Die Uhr oben startet mit Frage 21. Die Antwort zählt nur, wenn du sie zu dieser Uhrzeit gibst (innerhalb der Toleranz unten). Zu früh oder zu spät zählt als Fehler.</p>
   <p>Kalender und Telefonbuch öffnest du oben über die Reiter 2 und 3 und schließt sie wieder mit „Schließen“. Die Fenster lassen sich an der Titelzeile verschieben.</p>
@@ -257,7 +257,7 @@ function renderPage(){
     set.lines[i].forEach((v,j)=>{
       if(j===5){ const sp=document.createElement('td'); sp.className='sep'; tr.appendChild(sp); }
       const td=document.createElement('td'); td.textContent=v;
-      if(j<5){ td.className='l'+(set.lines[i].slice(5).includes(v)?' pre':''); tr.appendChild(td); return; }
+      if(j<5){ td.className='l'+(S&&S.pre[P.k][i].includes(j)?' pre':''); tr.appendChild(td); return; }
       td.className='r';
       if(S&&S.strikes[P.k][i][j]) td.classList.add('x');
       td.onclick=()=>{ if(!S||!S.running) return; td.classList.toggle('x'); S.strikes[P.k][i][j]=td.classList.contains('x'); };
@@ -470,7 +470,8 @@ function start(){
   unlockAudio();
   const st=settings(); const {end}=updateInfo(); const plan=clockPlan(st.mode==='zufall'); const sch=schedule(st,plan);
   S={running:true,t:0,c0:null,clkQ:CLK_Q,mode:st.mode,t0:performance.now(),tol:st.tol,feedback:st.fb,sch,end,next:0,extraClicks:0,log:[],
-     qs:{},submitted:[],ansClicks:0,strikes:{z:DATA.zahlen.map(r=>r.map(()=>false)),b:DATA.buchstaben.map(r=>r.map(()=>false))}};
+     qs:{},submitted:[],ansClicks:0,strikes:{z:DATA.zahlen.map(r=>r.map(()=>false)),b:DATA.buchstaben.map(r=>r.map(()=>false))},
+     pre:{z:DATA.zahlen.map(randomPre),b:DATA.buchstaben.map(randomPre)}};
   Q.forEach(q=>S.qs[q.n]={asked:null,status:null,answer:null,at:null});
   page=0; renderPage();
   ['winKal','winTel'].forEach(w=>$(w).classList.add('hidden')); setTabs(null);
@@ -504,16 +505,21 @@ function finish(){
   showResults();
 }
 
-function lineTargets(r){const L=new Set(r.slice(0,5)); return r.map((v,j)=>j>=5 && L.has(v));}
+// Zufällig 1–3 Reihen links vorstreichen (bei jedem Start neu)
+function randomPre(){ const idx=[0,1,2,3,4]; for(let i=4;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  return idx.slice(0,1+Math.floor(Math.random()*3)).sort(); }
+// Ziel: rechts jede Reihe, die einer links vorgestrichenen Reihe gleicht
+function lineTargets(r,pre){const L=new Set(pre.map(j=>r[j])); return r.map((v,j)=>j>=5 && L.has(v));}
 function gridScore(k){
   const lines=SETS[k].lines, strikes=S.strikes[k];
-  let hit=0,fa=0,miss=0,targets=0,allTargets=0,lines_=0;
-  lines.forEach(r=>lineTargets(r).forEach(t=>{if(t)allTargets++;}));
+  let hit=0,fa=0,miss=0,targets=0,allTargets=0,lines_=0,emptyTotal=0,emptyOk=0;
+  lines.forEach((r,i)=>lineTargets(r,S.pre[k][i]).forEach(t=>{if(t)allTargets++;}));
   S.submitted.forEach(({page:pi})=>{ const P=PAGES[pi]; if(P.k!==k) return;
-    for(let i=P.from;i<P.to;i++){ lines_++; const T=lineTargets(lines[i]);
+    for(let i=P.from;i<P.to;i++){ lines_++; const T=lineTargets(lines[i],S.pre[k][i]);
+      if(!T.some(Boolean)){ emptyTotal++; if(!strikes[i].some(Boolean)) emptyOk++; }
       T.forEach((isT,j)=>{const x=strikes[i][j]; if(isT) targets++; if(x&&isT) hit++; else if(x&&!isT) fa++; else if(!x&&isT) miss++;}); }
   });
-  return {hit,fa,miss,targets,allTargets,lines:lines_};
+  return {hit,fa,miss,targets,allTargets,lines:lines_,emptyTotal,emptyOk};
 }
 
 function showResults(){
@@ -542,7 +548,8 @@ function showResults(){
    kpi(cnt('zu früh')+' / '+cnt('zu spät'),'zu früh / zu spät')+kpi(avg?avg.toFixed(1)+' s':'–','Ø Reaktionszeit (ab Fragebeginn)')+'</div>';
   h+='<h3>Abstreichen</h3><div class="kpis">'+
    kpi(z.hit+' / '+z.targets,'Zahlen: richtig gestrichen')+kpi(z.fa,'Zahlen: falsch gestrichen')+kpi(z.miss,'Zahlen: übersehen (in '+z.lines+' abgegebenen Zeilen)')+
-   kpi(b.hit+' / '+b.targets,'Buchstaben: richtig gestrichen')+kpi(b.fa,'Buchstaben: falsch gestrichen')+kpi(b.miss,'Buchstaben: übersehen (in '+b.lines+' abgegebenen Zeilen)')+'</div>';
+   kpi(b.hit+' / '+b.targets,'Buchstaben: richtig gestrichen')+kpi(b.fa,'Buchstaben: falsch gestrichen')+kpi(b.miss,'Buchstaben: übersehen (in '+b.lines+' abgegebenen Zeilen)')+
+   kpi((z.emptyOk+b.emptyOk)+' / '+(z.emptyTotal+b.emptyTotal),'Zeilen ohne Treffer richtig leer gelassen')+'</div>';
   if(S.extraClicks) h+='<p class="note">'+S.extraClicks+' Antwortklick(s) ohne offene Frage im gewählten Block.</p>';
   h+='<div class="row"><button class="big" id="againBtn">Nochmal</button><button class="sec" id="toggleDet">Einzelne Fragen anzeigen</button></div>';
   h+='<div id="det" style="display:none"><table class="res"><tr><th>#</th><th>Frage</th><th>Richtig</th><th>Deine Antwort</th><th>Zeit</th><th>Ergebnis</th><th></th></tr>';
