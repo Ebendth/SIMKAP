@@ -6,7 +6,7 @@ Offline-fähige Übungs-App fürs Eignungstest-Training.
 
 | Übung | Ordner | Inhalt |
 |---|---|---|
-| SIMKAP | `simkap/` | Abstreichen, 75 Tonfragen, Kalender, Telefonbuch, Zeitaufgaben, Auswertung in % |
+| SIMKAP | `simkap/` | Abstreichen (echte Zahlen- und Symbollisten), 75 Tonfragen, Kalender, Telefonbuch, Zeitaufgaben, Auswertung in % |
 | Vigilanz | `vigilanz/` | Punkt springt im Kreis, 2–7 Sprünge pro Minute, 30 min, Fehlerquote und 5-Minuten-Verlauf |
 | Stop-Signal | `stopsignal/` | Pfeile links/rechts, Piepton = nicht drücken, adaptive Verzögerung, Fehler %, SSRT |
 | DAUF | `dauf/` | 2000 Dreiecksreihen mit Sprung, 30 min, Fehlerauswertung in % und 5-Minuten-Verlauf |
