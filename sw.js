@@ -1,4 +1,4 @@
-const CACHE='uebungen-v13';
+const CACHE='uebungen-v14';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png',
  './simkap/','./simkap/index.html','./dauf/','./dauf/index.html','./vigilanz/','./vigilanz/index.html','./stopsignal/','./stopsignal/index.html'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
