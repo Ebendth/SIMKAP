@@ -171,16 +171,16 @@ table.res th{background:#f4f6fa}
   <h2>SIMKAP Übung </h2>
   <p><b>Ablauf:</b> Nach dem Start läuft die Uhr. Abstreichen: Zahlen-, Symbol- und Buchstaben-Listen im Wechsel. Links sind in jeder Zeile einige Felder <b>bereits durchgestrichen</b>. Streiche <b>rechts</b> alle Felder ab, die einem links durchgestrichenen gleichen. Gibt es rechts kein passendes, streichst du in dieser Zeile nichts. Wenn eine Seite fertig ist: „Abgeben“.</p>
   <p>Währenddessen kommen in gleichen Abständen Fragen über den Ton. Klicke unten so schnell wie möglich die richtige Antwort an. Die Antwortfelder sind in drei Blöcke aufgeteilt (Fragen 1–25, 26–50, 51–75). Der Block springt automatisch zur zuletzt gestellten Frage, du kannst ihn aber auch selbst wechseln.</p>
-  <p><b>Zeitaufgaben</b> („Wenn die Uhr 2:30 zeigt …“): Die Uhr oben startet mit Frage 26. Die Antwort zählt nur, wenn du sie zu dieser Uhrzeit gibst (innerhalb der Toleranz unten). Zu früh oder zu spät zählt als Fehler.</p>
+  <p><b>Zeitaufgaben</b> („Wenn die Uhr 2:30 zeigt …“): Die Uhr oben startet mit Frage 21. Die Antwort zählt nur, wenn du sie zu dieser Uhrzeit gibst (innerhalb der Toleranz unten). Zu früh oder zu spät zählt als Fehler.</p>
   <p>Kalender und Telefonbuch öffnest du oben über die Reiter 2 und 3 und schließt sie wieder mit „Schließen“. Die Fenster lassen sich an der Titelzeile verschieben.</p>
   <div class="row">
    <label>Erste Frage nach <input type="number" id="setStart" min="0" max="120" value="5"> s</label>
-   <label>Abstand Fragen 1–25 <input type="number" id="setInt" min="6" max="60" value="13"> s</label>
+   <label>Abstand Fragen 1–20 <input type="number" id="setInt" min="6" max="60" value="13"> s</label>
    <label>Toleranz Zeitaufgaben ± <input type="number" id="setTol" min="1" max="30" value="5"> s</label>
 
   </div>
   <div class="row">
-   <b>Ablauf ab Frage 26:</b>
+   <b>Ablauf ab Frage 21:</b>
    <label><input type="radio" name="mode" value="fest" id="modeFix"> Fester Ablauf (jedes Mal gleich)</label>
    <label><input type="radio" name="mode" value="zufall" id="modeRnd"> Zufällige Abstände (jedes Mal neu)</label>
   </div>
@@ -441,69 +441,48 @@ function playTrack(n,onend){
 }
 
 // ---------- session
-const CLK_Q=26, LAST_AT=17*60+30, MIN_GAP=9, LEAD_MIN=20, LEAD_MAX=120;
+const CLK_Q=21, LAST_AT=17*60+30, MIN_GAP=10, LEAD_MIN=30, LEAD_MAX=120;
 function settings(){
   return {start:+$('setStart').value||0, int:Math.max(6,+$('setInt').value||13), tol:Math.max(1,+$('setTol').value||5),
           mode:$('modeRnd').checked?'zufall':'fest', pre:$('preRnd').checked?'zufall':'original', fb:$('setFb').checked};
 }
-// Mindestabstand nach Frage k: Länge der Tonspur + 1,5 s, mindestens 9 s
-const minGap=k=>Math.max(MIN_GAP,(DATA.dur[k-1]||6)+1.5);
-// Uhrzeiten (relativ zur Uhr) für Fragen 26–75, in Zeitabschnitten passend zu den Antwortblöcken
-function clockPlan(random,tol){
-  tol=tol==null?5:tol;
-  const N=Q.length, ks=[]; for(let k=CLK_Q;k<=N;k++) ks.push(k);
-  // Ein neuer Antwortblock beginnt erst, wenn alle Zeitaufgaben der früheren Blöcke vorbei sind
-  const blockFloor={}; let maxDl=-1e9;
-  BLOCKS.forEach(B=>{ if(B.from>CLK_Q) blockFloor[B.from]=maxDl+tol+5;
-    Q.forEach(q=>{ if(q.n>=B.from&&q.n<=B.to&&q.deadline!=null) maxDl=Math.max(maxDl,q.deadline); }); });
-  for(let attempt=0;attempt<800;attempt++){
-    const rnd=random&&attempt<790;
-    const w=ks.slice(1).map(()=>rnd?0.5+Math.random():1);
-    // Zeitabschnitte: Uhrstart → Blockwechsel → … → letzte Frage; in jedem Abschnitt gleichmäßig verteilen
-    const zs=[CLK_Q,...Object.keys(blockFloor).map(Number).sort((x,y)=>x-y),N];
-    const zt={}; zt[CLK_Q]=0; zt[N]=LAST_AT; Object.keys(blockFloor).forEach(f=>zt[f]=blockFloor[f]);
-    const ideal={};
-    for(let z=0;z<zs.length-1;z++){const a0=zs[z],b0=zs[z+1]; let tot=0; for(let k=a0;k<b0;k++) tot+=w[k-CLK_Q];
-      let acc=0; for(let k=a0;k<=b0;k++){ ideal[k]=zt[a0]+(zt[b0]-zt[a0])*acc/tot; if(k<b0) acc+=w[k-CLK_Q]; } }
-    const lo={}, hi={};
-    ks.forEach(k=>{lo[k]=-Infinity;hi[k]=Infinity;});
-    lo[CLK_Q]=hi[CLK_Q]=0; lo[N]=hi[N]=LAST_AT;
-    const anch={}; anch[CLK_Q]=0; anch[N]=LAST_AT;
-    ks.forEach(k=>{const q=Q[k-1];
-      if(q.deadline!=null){ lo[k]=q.deadline-LEAD_MAX; hi[k]=q.deadline-LEAD_MIN;
-        const target=rnd?(ideal[k]+(q.deadline-(LEAD_MIN+Math.random()*(LEAD_MAX-LEAD_MIN))))/2:ideal[k];
-        anch[k]=Math.min(hi[k],Math.max(lo[k],target)); }
-      if(blockFloor[k]!=null){ lo[k]=Math.max(lo[k],blockFloor[k]); anch[k]=Math.max(anch[k]!=null?anch[k]:ideal[k],blockFloor[k]); }
-    });
-    // Machbarkeit herstellen: vorwärts Mindestabstände einhalten
-    const ak=Object.keys(anch).map(Number).sort((a,b)=>a-b);
-    const need=(a,b)=>{let s=0;for(let k=a;k<b;k++)s+=minGap(k);return s;};
-    for(let j=1;j<ak.length;j++){const a=ak[j-1],b=ak[j]; anch[b]=Math.max(anch[b],anch[a]+need(a,b));}
-    for(let j=ak.length-2;j>=0;j--){const a=ak[j],b=ak[j+1]; anch[a]=Math.min(anch[a],anch[b]-need(a,b));}
-    let feas=ak.every(k=>anch[k]>=lo[k]-0.01&&anch[k]<=hi[k]+0.01);
-    for(let j=1;j<ak.length&&feas;j++){const a=ak[j-1],b=ak[j]; if(anch[b]-anch[a]<need(a,b)-0.01) feas=false;}
-    if(!feas) continue;
-    const T={};
+// Uhrzeiten (relativ zur Uhr) für Fragen 21–75
+function clockPlan(random){
+  const ks=[]; for(let k=CLK_Q;k<=Q.length;k++) ks.push(k);
+  for(let attempt=0;attempt<500;attempt++){
+    // Gewichte je Abstand: fest = gleich, zufällig = 0.5..1.5
+    const w=ks.slice(1).map(()=>random?0.5+Math.random():1);
+    const cum=[0]; w.forEach(x=>cum.push(cum[cum.length-1]+x)); const tot=cum[cum.length-1];
+    const ideal={}; ks.forEach((k,i)=>ideal[k]=cum[i]/tot*LAST_AT);
+    const anch={}; anch[CLK_Q]=0; anch[Q.length]=LAST_AT;
+    ks.forEach(k=>{const q=Q[k-1]; if(q.deadline!=null){
+      let lo=q.deadline-LEAD_MAX, hi=q.deadline-LEAD_MIN;
+      if(random){ const lead=LEAD_MIN+Math.random()*(LEAD_MAX-LEAD_MIN); anch[k]=Math.min(hi,Math.max(lo,(ideal[k]+(q.deadline-lead))/2)); }
+      else anch[k]=Math.min(hi,Math.max(lo,ideal[k]));
+    }});
+    const ak=Object.keys(anch).map(Number).sort((a,b)=>a-b); const T={};
     for(let j=0;j<ak.length-1;j++){const a=ak[j],b=ak[j+1];
-      const spare=anch[b]-anch[a]-need(a,b); let s=0; for(let k=a;k<b;k++) s+=w[k-CLK_Q];
-      T[a]=anch[a]; let acc=anch[a]; for(let k=a;k<b;k++){ acc+=minGap(k)+spare*w[k-CLK_Q]/s; T[k+1]=acc; } T[b]=anch[b]; }
-    return T;
+      const n=b-a, span=anch[b]-anch[a], spare=span-n*MIN_GAP; if(spare<0){T[a]=anch[a];for(let k=a+1;k<=b;k++)T[k]=anch[a]+span*(k-a)/n;continue;}
+      let s=0; for(let k=a;k<b;k++) s+=w[k-CLK_Q];
+      T[a]=anch[a]; let acc=anch[a]; for(let k=a;k<b;k++){ acc+=MIN_GAP+spare*w[k-CLK_Q]/s; T[k+1]=acc; } T[b]=anch[b]; }
+    let ok=true; for(let k=CLK_Q;k<Q.length;k++) if(T[k+1]-T[k]<MIN_GAP-0.01){ok=false;break;}
+    if(ok||!random) return T;
   }
-  return null;
+  return clockPlan(false);
 }
 function schedule(st,T){
   const c0=st.start+(CLK_Q-1)*st.int;
   return Q.map((q,i)=> q.n<CLK_Q ? st.start+i*st.int : c0+T[q.n]);
 }
 function updateInfo(){
-  const st=settings(), T=clockPlan(false,st.tol), sch=schedule(st,T), c0=sch[CLK_Q-1];
+  const st=settings(), T=clockPlan(false), sch=schedule(st,T), c0=sch[CLK_Q-1];
   const lastDl=Math.max(...Q.filter(q=>q.deadline).map(q=>q.deadline));
   const end=c0+lastDl+st.tol+10;
   const gaps=[]; for(let k=CLK_Q;k<Q.length;k++) gaps.push(T[k+1]-T[k]);
-  let s='Abschnitt 1: Fragen 1–25 im Abstand von '+st.int+' s. Abschnitt 2: Uhr startet mit Frage 26, Fragen 26–50 bis kurz nach der letzten Zeitaufgabe dieses Blocks (11:45). Abschnitt 3: Fragen 51–75 bis Uhr 17:30. ';
+  let s='Fragen 1–20 im Abstand von '+st.int+' s, dann startet die Uhr mit Frage 21. ';
   s+= st.mode==='fest'
-    ? 'Fester Ablauf: Abstände '+Math.round(Math.min(...gaps))+'–'+Math.round(Math.max(...gaps))+' s, Zeitaufgaben 20–120 s vor ihrer Uhrzeit.'
-    : 'Zufällige Abstände: jedes Mal neu, Zeitaufgaben 20–120 s vor ihrer Uhrzeit.';
+    ? 'Fester Ablauf: Fragen 21–75 bis Uhr 17:30, Abstände '+Math.round(Math.min(...gaps))+'–'+Math.round(Math.max(...gaps))+' s, Zeitaufgaben 30–120 s vor ihrer Uhrzeit.'
+    : 'Zufällige Abstände: Fragen 21–75 bis Uhr 17:30, Abstände jedes Mal neu (mind. '+MIN_GAP+' s), Zeitaufgaben 30–120 s vor ihrer Uhrzeit.';
   s+=' Gesamtdauer ca. '+fmt(end)+'.';
   $('setInfo').textContent=s; store('simkap_set',st);
   return {end};
